@@ -1,85 +1,65 @@
-import java.util.*;
+import java.util.HashMap;
 
-class ConfirmedReservation {
-    private String reservationId;
-    private String guestName;
-    private String roomType;
-
-    public ConfirmedReservation(String reservationId, String guestName, String roomType) {
-        this.reservationId = reservationId;
-        this.guestName = guestName;
-        this.roomType = roomType;
-    }
-
-    public String getReservationId() {
-        return reservationId;
-    }
-
-    public String getGuestName() {
-        return guestName;
-    }
-
-    public String getRoomType() {
-        return roomType;
-    }
-
-    public void displayReservation() {
-        System.out.println("Reservation ID: " + reservationId +
-                ", Guest: " + guestName +
-                ", Room Type: " + roomType);
+class InvalidBookingException extends Exception {
+    public InvalidBookingException(String message) {
+        super(message);
     }
 }
 
-class BookingHistory {
-    private List<ConfirmedReservation> history;
+class RoomInventory {
+    private HashMap<String, Integer> inventory;
 
-    public BookingHistory() {
-        history = new ArrayList<>();
+    public RoomInventory() {
+        inventory = new HashMap<>();
     }
 
-    public void addReservation(ConfirmedReservation reservation) {
-        history.add(reservation);
+    public void addRoom(String type, int count) {
+        inventory.put(type, count);
     }
 
-    public List<ConfirmedReservation> getHistory() {
-        return history;
+    public boolean roomExists(String type) {
+        return inventory.containsKey(type);
+    }
+
+    public int getAvailability(String type) {
+        return inventory.getOrDefault(type, 0);
     }
 }
 
-class BookingReportService {
-    public void displayAllBookings(BookingHistory history) {
-        System.out.println("Booking History:");
-        for (ConfirmedReservation r : history.getHistory()) {
-            r.displayReservation();
-        }
-    }
-
-    public void generateRoomTypeReport(BookingHistory history) {
-        HashMap<String, Integer> report = new HashMap<>();
-
-        for (ConfirmedReservation r : history.getHistory()) {
-            String type = r.getRoomType();
-            report.put(type, report.getOrDefault(type, 0) + 1);
+class InvalidBookingValidator {
+    public void validate(String guestName, String roomType, RoomInventory inventory) throws InvalidBookingException {
+        if (guestName == null || guestName.isEmpty()) {
+            throw new InvalidBookingException("Guest name cannot be empty.");
         }
 
-        System.out.println("\nRoom Type Booking Report:");
-        for (String type : report.keySet()) {
-            System.out.println(type + ": " + report.get(type) + " bookings");
+        if (!inventory.roomExists(roomType)) {
+            throw new InvalidBookingException("Invalid room type selected.");
+        }
+
+        if (inventory.getAvailability(roomType) <= 0) {
+            throw new InvalidBookingException("Selected room type is not available.");
         }
     }
 }
 
 public class App {
     public static void main(String[] args) {
-        BookingHistory history = new BookingHistory();
+        RoomInventory inventory = new RoomInventory();
+        inventory.addRoom("Standard Room", 2);
+        inventory.addRoom("Deluxe Room", 0);
 
-        history.addReservation(new ConfirmedReservation("R101", "Aishwarya", "Standard Room"));
-        history.addReservation(new ConfirmedReservation("R102", "Rahul", "Deluxe Room"));
-        history.addReservation(new ConfirmedReservation("R103", "Sneha", "Standard Room"));
+        InvalidBookingValidator validator = new InvalidBookingValidator();
 
-        BookingReportService reportService = new BookingReportService();
+        String guestName = "Aishwarya";
+        String roomType = "Deluxe Room";
 
-        reportService.displayAllBookings(history);
-        reportService.generateRoomTypeReport(history);
+        try {
+            validator.validate(guestName, roomType, inventory);
+            System.out.println("Booking input is valid. Proceed with booking.");
+        } catch (InvalidBookingException e) {
+            System.out.println("Booking Failed: " + e.getMessage());
+        }
+
+        System.out.println("System continues running...");
     }
 }
