@@ -1,105 +1,85 @@
-import java.util.HashMap;
+import java.util.*;
 
-abstract class Room {
-    String roomType;
-    double price;
+class ConfirmedReservation {
+    private String reservationId;
+    private String guestName;
+    private String roomType;
 
-    Room(String roomType, double price) {
+    public ConfirmedReservation(String reservationId, String guestName, String roomType) {
+        this.reservationId = reservationId;
+        this.guestName = guestName;
         this.roomType = roomType;
-        this.price = price;
+    }
+
+    public String getReservationId() {
+        return reservationId;
+    }
+
+    public String getGuestName() {
+        return guestName;
     }
 
     public String getRoomType() {
         return roomType;
     }
 
-    public double getPrice() {
-        return price;
-    }
-
-    abstract void displayRoomDetails();
-}
-
-class StandardRoom extends Room {
-    StandardRoom() {
-        super("Standard Room", 2000);
-    }
-
-    void displayRoomDetails() {
-        System.out.println(roomType + " - Price: " + price);
+    public void displayReservation() {
+        System.out.println("Reservation ID: " + reservationId +
+                ", Guest: " + guestName +
+                ", Room Type: " + roomType);
     }
 }
 
-class DeluxeRoom extends Room {
-    DeluxeRoom() {
-        super("Deluxe Room", 3500);
+class BookingHistory {
+    private List<ConfirmedReservation> history;
+
+    public BookingHistory() {
+        history = new ArrayList<>();
     }
 
-    void displayRoomDetails() {
-        System.out.println(roomType + " - Price: " + price);
-    }
-}
-
-class SuiteRoom extends Room {
-    SuiteRoom() {
-        super("Suite Room", 5000);
+    public void addReservation(ConfirmedReservation reservation) {
+        history.add(reservation);
     }
 
-    void displayRoomDetails() {
-        System.out.println(roomType + " - Price: " + price);
+    public List<ConfirmedReservation> getHistory() {
+        return history;
     }
 }
 
-class RoomInventory {
-    private HashMap<String, Integer> inventory;
-
-    public RoomInventory() {
-        inventory = new HashMap<>();
+class BookingReportService {
+    public void displayAllBookings(BookingHistory history) {
+        System.out.println("Booking History:");
+        for (ConfirmedReservation r : history.getHistory()) {
+            r.displayReservation();
+        }
     }
 
-    public void addRoom(String type, int count) {
-        inventory.put(type, count);
-    }
+    public void generateRoomTypeReport(BookingHistory history) {
+        HashMap<String, Integer> report = new HashMap<>();
 
-    public int getAvailability(String type) {
-        return inventory.getOrDefault(type, 0);
-    }
+        for (ConfirmedReservation r : history.getHistory()) {
+            String type = r.getRoomType();
+            report.put(type, report.getOrDefault(type, 0) + 1);
+        }
 
-    public HashMap<String, Integer> getInventory() {
-        return inventory;
-    }
-}
-
-class SearchService {
-    public void displayAvailableRooms(RoomInventory inventory, Room[] rooms) {
-        System.out.println("Available Rooms:");
-
-        for (Room room : rooms) {
-            int available = inventory.getAvailability(room.getRoomType());
-            if (available > 0) {
-                room.displayRoomDetails();
-                System.out.println("Available Count: " + available);
-                System.out.println("----------------------");
-            }
+        System.out.println("\nRoom Type Booking Report:");
+        for (String type : report.keySet()) {
+            System.out.println(type + ": " + report.get(type) + " bookings");
         }
     }
 }
 
 public class App {
     public static void main(String[] args) {
-        RoomInventory inventory = new RoomInventory();
+        BookingHistory history = new BookingHistory();
 
-        inventory.addRoom("Standard Room", 5);
-        inventory.addRoom("Deluxe Room", 0);
-        inventory.addRoom("Suite Room", 2);
+        history.addReservation(new ConfirmedReservation("R101", "Aishwarya", "Standard Room"));
+        history.addReservation(new ConfirmedReservation("R102", "Rahul", "Deluxe Room"));
+        history.addReservation(new ConfirmedReservation("R103", "Sneha", "Standard Room"));
 
-        Room[] rooms = {
-                new StandardRoom(),
-                new DeluxeRoom(),
-                new SuiteRoom()
-        };
+        BookingReportService reportService = new BookingReportService();
 
-        SearchService searchService = new SearchService();
-        searchService.displayAvailableRooms(inventory, rooms);
+        reportService.displayAllBookings(history);
+        reportService.generateRoomTypeReport(history);
     }
 }
