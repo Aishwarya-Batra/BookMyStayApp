@@ -1,46 +1,20 @@
 import java.util.*;
 
-class ConfirmedReservation {
-    private String reservationId;
+class Reservation {
     private String guestName;
     private String roomType;
-    private String roomId;
-    private boolean isCancelled;
 
-    public ConfirmedReservation(String reservationId, String guestName, String roomType, String roomId) {
-        this.reservationId = reservationId;
+    public Reservation(String guestName, String roomType) {
         this.guestName = guestName;
         this.roomType = roomType;
-        this.roomId = roomId;
-        this.isCancelled = false;
     }
 
-    public String getReservationId() {
-        return reservationId;
+    public String getGuestName() {
+        return guestName;
     }
 
     public String getRoomType() {
         return roomType;
-    }
-
-    public String getRoomId() {
-        return roomId;
-    }
-
-    public boolean isCancelled() {
-        return isCancelled;
-    }
-
-    public void cancel() {
-        isCancelled = true;
-    }
-
-    public void display() {
-        System.out.println("Reservation ID: " + reservationId +
-                ", Guest: " + guestName +
-                ", Room Type: " + roomType +
-                ", Room ID: " + roomId +
-                ", Cancelled: " + isCancelled);
     }
 }
 
@@ -51,75 +25,67 @@ class RoomInventory {
         inventory = new HashMap<>();
     }
 
+    public synchronized boolean allocateRoom(String roomType) {
+        int available = inventory.getOrDefault(roomType, 0);
+        if (available > 0) {
+            inventory.put(roomType, available - 1);
+            return true;
+        }
+        return false;
+    }
+
     public void addRoom(String type, int count) {
         inventory.put(type, count);
     }
 
-    public void incrementRoom(String type) {
-        inventory.put(type, inventory.get(type) + 1);
-    }
-
     public void displayInventory() {
-        System.out.println("Inventory Status:");
+        System.out.println("Final Inventory:");
         for (String type : inventory.keySet()) {
             System.out.println(type + ": " + inventory.get(type));
         }
     }
 }
 
-class BookingHistory {
-    private List<ConfirmedReservation> history;
+class BookingRequestQueue {
+    private Queue<Reservation> queue = new LinkedList<>();
 
-    public BookingHistory() {
-        history = new ArrayList<>();
+    public synchronized void addRequest(Reservation r) {
+        queue.add(r);
     }
 
-    public void addReservation(ConfirmedReservation r) {
-        history.add(r);
-    }
-
-    public ConfirmedReservation findReservation(String reservationId) {
-        for (ConfirmedReservation r : history) {
-            if (r.getReservationId().equals(reservationId)) {
-                return r;
-            }
-        }
-        return null;
-    }
-
-    public void displayHistory() {
-        for (ConfirmedReservation r : history) {
-            r.display();
-        }
+    public synchronized Reservation getRequest() {
+        return queue.poll();
     }
 }
 
-class CancellationService {
-    private Stack<String> rollbackRooms;
+class BookingProcessor extends Thread {
+    private BookingRequestQueue queue;
+    private RoomInventory inventory;
 
-    public CancellationService() {
-        rollbackRooms = new Stack<>();
+    public BookingProcessor(BookingRequestQueue queue, RoomInventory inventory) {
+        this.queue = queue;
+        this.inventory = inventory;
     }
 
-    public void cancelReservation(String reservationId, BookingHistory history, RoomInventory inventory) {
-        ConfirmedReservation reservation = history.findReservation(reservationId);
+    public void run() {
+        while (true) {
+            Reservation r;
+            synchronized (queue) {
+                r = queue.getRequest();
+            }
 
-        if (reservation == null) {
-            System.out.println("Reservation not found.");
-            return;
+            if (r == null) {
+                break;
+            }
+
+            boolean allocated = inventory.allocateRoom(r.getRoomType());
+
+            if (allocated) {
+                System.out.println(r.getGuestName() + " booking confirmed for " + r.getRoomType());
+            } else {
+                System.out.println(r.getGuestName() + " booking failed for " + r.getRoomType());
+            }
         }
-
-        if (reservation.isCancelled()) {
-            System.out.println("Reservation already cancelled.");
-            return;
-        }
-
-        rollbackRooms.push(reservation.getRoomId());
-        inventory.incrementRoom(reservation.getRoomType());
-        reservation.cancel();
-
-        System.out.println("Reservation " + reservationId + " cancelled successfully.");
-        System.out.println("Room " + rollbackRooms.peek() + " rolled back to inventory.");
     }
 }
 
@@ -128,15 +94,25 @@ public class App {
         RoomInventory inventory = new RoomInventory();
         inventory.addRoom("Standard Room", 2);
 
-        BookingHistory history = new BookingHistory();
-        history.addReservation(new ConfirmedReservation("R101", "Aishwarya", "Standard Room", "ST201"));
-        history.addReservation(new ConfirmedReservation("R102", "Rahul", "Standard Room", "ST202"));
+        BookingRequestQueue queue = new BookingRequestQueue();
+        queue.addRequest(new Reservation("Aishwarya", "Standard Room"));
+        queue.addRequest(new Reservation("Rahul", "Standard Room"));
+        queue.addRequest(new Reservation("Sneha", "Standard Room"));
+        queue.addRequest(new Reservation("Arjun", "Standard Room"));
 
-        CancellationService cancelService = new CancellationService();
+        BookingProcessor t1 = new BookingProcessor(queue, inventory);
+        BookingProcessor t2 = new BookingProcessor(queue, inventory);
 
-        cancelService.cancelReservation("R101", history, inventory);
+        t1.start();
+        t2.start();
 
-        history.displayHistory();
+        try {
+            t1.join();
+            t2.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         inventory.displayInventory();
     }
 }
